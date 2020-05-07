@@ -5,7 +5,7 @@ idfunc = lambda func: func
 
 class TestWM(Mixable):
     def on_key(self, key):
-        assert isinstance(key, basestring), 'First argument to on_key must be string'
+        assert isinstance(key, str), 'First argument to on_key must be string'
         return ActionCaller(self, idfunc)
 
     def on_timer(self, period, start=True):
@@ -40,7 +40,7 @@ class TestWM(Mixable):
         return ActionCaller(self, idfunc)
 
     def on_property_change(self, *args):
-        assert all(isinstance(r, basestring) for r in args)
+        assert all(isinstance(r, str) for r in args)
         return ActionCaller(self, idfunc)
 
     def on_destroy(self, window):

@@ -4,7 +4,7 @@ from ._xlib import ffi, lib
 NULL = ffi.NULL
 globals().update(lib.__dict__)
 
-NONE = 0L
+NONE = 0
 
 
 class AtomCache(object):
@@ -18,7 +18,7 @@ class AtomCache(object):
         except KeyError:
             pass
 
-        atom = self._cache[name] = XInternAtom(self.dpy, name, False)
+        atom = self._cache[name] = XInternAtom(self.dpy, name.encode('ascii'), False)
         return atom
 
 
@@ -37,9 +37,9 @@ def get_window_property(display, window, property, type=0, split=False, size=50)
     bafter = bytes_after[0]
     result = b''
     if fmt == 32:
-        result += str(ffi.buffer(data[0], nitems_return[0]*ITEM_SIZE))
+        result += ffi.buffer(data[0], nitems_return[0]*ITEM_SIZE)[:]
     elif fmt == 8:
-        result += str(ffi.buffer(data[0], nitems_return[0]))
+        result += ffi.buffer(data[0], nitems_return[0])[:]
     elif not fmt:
         return None
     else:

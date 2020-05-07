@@ -85,7 +85,7 @@ class WM(Mixable):
         os.write(self.wfifo, signal + '\n')
 
     def keycode(self, key):
-        sym = X.XStringToKeysym(KEY_ALIASES.get(key, key))
+        sym = X.XStringToKeysym(KEY_ALIASES.get(key, key).encode('ascii'))
         if sym is X.NoSymbol:
             return None
 
@@ -512,7 +512,7 @@ class WM(Mixable):
         except ValueError:
             pass
 
-        for atom, whandlers in self.property_handlers.items():
+        for atom, whandlers in list(self.property_handlers.items()):
             if window in whandlers:
                 del whandlers[window]
 

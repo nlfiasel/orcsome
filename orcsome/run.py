@@ -19,7 +19,7 @@ def load_config(wm, config):
     env = {}
     sys.path.insert(0, os.path.dirname(config))
     try:
-        execfile(config, env)
+        exec(compile(open(config, "rb").read(), config, 'exec'), env)
     except:
         logger.exception('Error on loading %s' % config)
         sys.exit(1)
@@ -37,7 +37,7 @@ def check_config(config):
     env = {}
     sys.path.insert(0, os.path.dirname(config))
     try:
-        execfile(config, env)
+        exec(compile(open(config, "rb").read(), config, 'exec'), env)
     except:
         logger.exception('Config file check failed %s' % config)
         return False
@@ -48,7 +48,7 @@ def check_config(config):
 
 
 def run():
-    parser = argparse.ArgumentParser(version='%prog ' + VERSION)
+    parser = argparse.ArgumentParser(prog='%prog ' + VERSION)
     parser.add_argument('-l', '--log', dest='log', metavar='FILE',
         help='Path to log file (log to stdout by default)')
     parser.add_argument('--log-level', metavar='LOGLEVEL', default='INFO',

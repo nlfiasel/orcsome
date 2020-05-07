@@ -49,7 +49,7 @@ def spawn(cmd):
 
 class Mixable(object):
     def mix(self, mixin):
-        for name, value in mixin.__dict__.iteritems():
+        for name, value in list(mixin.__dict__.items()):
             if name == '__init__':
                 value(self)
             elif name.startswith('__'):

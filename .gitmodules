@@ -1,0 +1,3 @@
+[submodule "window-layout"]
+	path = window-layout
+	url = https://github.com/BlaineEXE/window-layout

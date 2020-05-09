@@ -1,0 +1,250 @@
+from orcsome import get_wm
+from orcsome.actions import *
+
+#################################################################################
+# From: https://github.com/BlaineEXE/window-layout
+#################################################################################
+import argparse
+import os
+import os.path as path
+import pickle
+import re
+import statistics as stat
+import subprocess
+
+def RunCommand(command):
+    res = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if res.returncode != 0:
+        raise Exception("could not run command: " + command + "\nresult: " + res)
+    return(res.stdout.decode("utf8"))
+
+class Window:
+    def __init__(self):
+        return
+
+    def NewFromWmctrlListLine(self, line):
+        fields = line.split()
+        # strings
+        self.id = fields[0]
+        t = fields[4:]
+        self.title = " ".join(t)
+        print("parsing " + self.title)
+        # ints
+        self.desktop = int(fields[1])
+        self.x, self.y, self.width, self.height = getWindowXYWH(self.id)
+        # process
+        pid = fields[2]
+        self.executable = RunCommand(["ps", "-p", pid, "-o", "comm="])
+
+    def __repr__(self):
+        return("<<id:"+self.id + \
+            "\tdesk:"+str(self.desktop) + \
+            "\tx,y:"+str(self.x)+","+str(self.y) + \
+            "\tw,h:"+str(self.width)+","+str(self.height) + \
+            "\texe:"+self.executable + \
+            "\ttitle:"+self.title+ \
+            ">>")
+
+class WindowMatch():
+    def __init__(self, saved, current):
+        self.saved = saved
+        self.current = current
+
+    def __str__(self):
+        return("'" + str(self.saved.title) + "'\tMATCHES\t'" + str(self.current.title) + "'")
+
+def GetWindows():
+    rawWins = RunCommand(["wmctrl", "-pl"])
+    wins = []
+    for line in rawWins.splitlines(0):
+        w = Window()
+        w.NewFromWmctrlListLine(line)
+        if w.desktop < 0:
+            continue
+        wins += [w]
+    return(wins)
+
+def getWindowXYWH(windowID):
+    rawInfo = RunCommand(["xwininfo", "-id", windowID])
+    x = extractValueFromXwininfoLine("Absolute upper-left X", rawInfo)
+    y = extractValueFromXwininfoLine("Absolute upper-left Y", rawInfo)
+    w = extractValueFromXwininfoLine("Width", rawInfo)
+    h = extractValueFromXwininfoLine("Height", rawInfo)
+    return int(x), int(y), int(w), int(h)
+
+def extractValueFromXwininfoLine(fullFieldText, multilineText):
+    matcher = re.compile(r"{}\:\s+(-?\d+)".format(fullFieldText))
+    match = matcher.search(multilineText)
+    return match.group(1)
+
+def WinsByExe(wins):
+    byExe = {}
+    for w in wins:
+        l = byExe.get(w.executable, [])
+        l += [w]
+        byExe[w.executable] = l
+    return(byExe)
+
+def TitleSimilarity(savedWin, currentWin):
+    # look for right-to-left similarity
+    target = savedWin.title
+    test = currentWin.title
+    match = ""
+    for i in range(len(target)):
+        if target[len(target)-i:] == test[len(test)-i:]:
+            match = target[len(target)-i:]
+            continue
+        break
+    maxlen = max([len(target), len(test)])
+    sim = float(len(match)) / maxlen
+    # print("title similarity of '" + target + "' vs. '" + test + "' = " + str(sim))
+    return(sim)
+
+def sizeSimilarity(target, test):
+    if test <= target:
+        sim = float(test)/float(target)
+    elif test >= target*2:
+        sim = 0.0  # dimensions equal to or greater than twice-the-target are zero percent similar
+    else :
+        sim = 1.0 - float( test - target )/float(target)
+    return(sim)
+
+def WidthSimilarity(savedWin, currentWin):
+    sim = sizeSimilarity(savedWin.width, currentWin.width)
+    # print("width similarity of '" + savedWin.title + "' vs. '" + currentWin.title + "' = " + str(sim))
+    return(sim)
+
+def HeightSimilarity(savedWin, currentWin):
+    sim = sizeSimilarity(savedWin.height, currentWin.height)
+    # print("height similarity of '" + savedWin.title + "' vs. '" + currentWin.title + "' = " + str(sim))
+    return(sim)
+
+def Matches(savedWins, currentWins, similarityMetricFunctions):
+    winMatches = []
+    madeMatch = True
+    while len(savedWins) > 0 and madeMatch == True:
+        for i in range(len(savedWins)):
+            # print("ITERATION: " + str(i))
+            # print("saved: "+str(savedWins))
+            # print("current: "+str(currentWins))
+            madeMatch = False
+            s = savedWins[i]
+            simlist = []
+            if len(currentWins) == 0:
+                break
+            for j in range(len(currentWins)):
+                c = currentWins[j]
+                sim = 0.0
+                for metricFxn in similarityMetricFunctions:
+                    msim = metricFxn(s, c)
+                    if msim < 0.35:
+                        msim = 0  # anything less than 35% match is assumed non-matching
+                    sim += msim
+                simlist += [sim]
+            # print("simlist:", str(simlist))
+            maxsim = max(simlist)
+            if maxsim == 0.0:
+                continue
+            if len(simlist) > 1 :
+                stdev = stat.stdev(simlist) # use stdev to find statistically good match
+                # print("stdev:", str(stdev))
+                distToMax = [maxsim - s for s in simlist]
+                distToMax.remove(0.0) # remove one instance of zero
+                madeMatch = True
+                for d in distToMax:
+                    if d <= stdev:
+                        # print("no statistically good match for "+s.title)
+                        madeMatch = False # did not find a statistically good match here
+                        break
+            else:
+                madeMatch = ( simlist[0] >= 0.5 )
+            if madeMatch:
+                cidx = simlist.index(maxsim)
+                m = WindowMatch(savedWins.pop(i), currentWins.pop(cidx))
+                # print("MATCH: "+str(m))
+                # print("savedwins: " + str(savedWins))
+                # print("currentWins: " + str(currentWins))
+                winMatches += [m]
+                break
+    return(winMatches, savedWins, currentWins)
+
+def SetGeometry(windowMatch):
+    currID = windowMatch.current.id
+    saved = windowMatch.saved
+    left, top = GetGeometryOffsets(currID)
+    RunCommand(["wmctrl",  "-i", "-r", currID,
+        "-e", "0,{},{},{},{}".format(saved.x - left, saved.y - top, saved.width, saved.height)])
+    RunCommand(["wmctrl", "-i", "-r", currID, "-t", str(saved.desktop)])
+
+# Most programs need x,y adjusted by window decoration amounts.
+def GetGeometryOffsets(windowID):
+    extents = RunCommand(["xprop", "_NET_FRAME_EXTENTS", "-id", windowID])
+    #print(extents)
+    if "not found" in extents:
+        # no extent information, so no offsets
+        return 0,0
+    # _NET_FRAME_EXTENTS = left, right, top, bottom
+    decorations = extents.split("=")[1].rstrip().replace(" ", "").split(",")
+    decorLeft = decorations[0]
+    decorTop = decorations[2]
+    #print("offsetting by " + decorLeft + ", " + decorTop)
+    return(int(decorLeft), int(decorTop))
+#################################################################################
+
+wm = get_wm()
+
+_back = []
+_forward = []
+
+@wm.on_create
+def append_wins():
+    wins = GetWindows()
+    _back.append(wins)
+    _forward.clear()
+
+@wm.on_key('Mod+u')
+def forward_wins():
+    savedWins = _forward.pop()
+    _back.append(savedWins)
+    change_wins(savedWins)
+
+@wm.on_key('Mod+d')
+def back_wins():
+    savedWins = _back.pop()
+    _forward.append(savedWins)
+    change_wins(savedWins)
+
+def change_wins(savedWins):
+    savedByExe = WinsByExe(savedWins)
+    currentByExe = WinsByExe(GetWindows())
+
+    windowMatches = []
+
+    for exe in savedByExe:
+        if len(currentByExe.get(exe, [])) == 0:
+            print("no windows with executable '" + savedByExe[exe][0].executable + "' currently exist. Continuing.")
+            savedByExe[exe] = []
+            continue
+        if len(savedByExe[exe]) == 1 and len(currentByExe[exe]) == 1:
+            # print("single match for window with executable '" + savedByExe[exe][0].executable)
+            windowMatches += [WindowMatch(savedByExe[exe][0], currentByExe[exe][0])]
+            savedByExe[exe] = []
+            currentByExe[exe] = []
+            continue
+        matches, leftoverSaved, leftoverCurrent = Matches(savedByExe[exe], currentByExe[exe], [TitleSimilarity])
+        #print("saved: " + str(leftoverSaved))
+        #print("current: "+ str(leftoverCurrent))
+        windowMatches += matches
+        matches, leftoverSaved, leftoverCurrent = Matches(leftoverSaved, leftoverCurrent, [WidthSimilarity, HeightSimilarity])
+        windowMatches += matches
+        savedByExe[exe] = leftoverSaved
+        currentByExe[exe] = leftoverCurrent
+
+    for m in windowMatches:
+        # print(m)
+        SetGeometry(m)
+
+    print("AMBIGUOUS WINDOWS:")
+    for e in savedByExe:
+        if savedByExe[e]:
+            print("    " + str(savedByExe[e]))

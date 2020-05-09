@@ -2,6 +2,19 @@ Orcsome is a scripting extension for NETWM compliant window managers. It can
 help a lot to customize your work environment.
 
 
+New
+----------
+代码修改为Python3
+
+Mod+d 回退窗口操作
+Mod+u 重做窗口操作
+
+配置文件在 orcsome/rc.py
+
+snapshot 脚本来自于 `BlaineEXE/window-layout`_
+
+.. _BlaineEXE/window-layout: https://github.com/BlaineEXE/window-layout
+
 Motivation
 ----------
 
@@ -123,7 +136,6 @@ TODO
 ----
 
 * Tests
-* Python3 port
 * API to configure window geometry
 * Layouts (tiling)
 * Multiple screens

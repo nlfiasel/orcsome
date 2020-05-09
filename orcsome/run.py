@@ -54,7 +54,8 @@ def run():
     parser.add_argument('--log-level', metavar='LOGLEVEL', default='INFO',
         help='log level, default is INFO')
 
-    config_dir = os.getenv('XDG_CONFIG_HOME', os.path.expanduser('~/.config'))
+    # config_dir = os.getenv('XDG_CONFIG_HOME', os.path.expanduser('~/.config'))
+    config_dir = os.getcwd()
     default_rcfile = os.path.join(config_dir, 'orcsome', 'rc.py')
     parser.add_argument('-c', '--config', dest='config', metavar='FILE',
         default=default_rcfile, help='Path to config file (%(default)s)')

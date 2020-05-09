@@ -55,8 +55,9 @@ def run():
         help='log level, default is INFO')
 
     # config_dir = os.getenv('XDG_CONFIG_HOME', os.path.expanduser('~/.config'))
-    config_dir = os.getcwd()
-    default_rcfile = os.path.join(config_dir, 'orcsome', 'rc.py')
+    # default_rcfile = os.path.join(config_dir, 'orcsome', 'rc.py')
+    config_dir = os.path.split(os.path.realpath(__file__))[0]
+    default_rcfile = os.path.join(config_dir, 'rc.py')
     parser.add_argument('-c', '--config', dest='config', metavar='FILE',
         default=default_rcfile, help='Path to config file (%(default)s)')
 

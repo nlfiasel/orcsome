@@ -8,11 +8,15 @@ New
 
 功能：自动记录每一次窗口移动，使用 **Mod+d** 回退窗口操作， **Mod+u** 重做窗口操作
 
-注意：窗口创建的情况处理目前不良好
 
 配置文件在 orcsome/rc.py
 
 snapshot 脚本来自于 `BlaineEXE/window-layout`_
+
+
+注意：窗口创建与隐藏的情况处理目前不够良好，跨虚拟桌面的处理存在问题
+
+需要 wmctrl 及 xdotool, 并且之后大概率全换成xdotool
 
 .. _BlaineEXE/window-layout: https://github.com/BlaineEXE/window-layout
 
